@@ -1,0 +1,43 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:       # one origin via CORS_ORIGIN; add more lines here for Symphony/Nexus origins
+            - ${env:CORS_ORIGIN:-http://localhost:5173}
+          allowed_headers:
+            - "*"
+        # Production: also set max_request_body_size and put an authenticating gateway in front.
+
+processors:
+  memory_limiter:            # protects the collector from traffic spikes
+    check_interval: 1s
+    limit_mib: 400
+  batch: {}
+
+exporters:
+  otlp/signoz:               # all three signals -> the SigNoz ingester (OTLP/gRPC) on signoz-network
+    endpoint: ${env:SIGNOZ_OTLP_ENDPOINT:-signoz-ingester:4317}
+    tls:
+      insecure: true         # local/dev SigNoz. For a TLS endpoint remove this and set the proper tls settings
+    # SigNoz Cloud needs an ingestion key (and a cloud endpoint instead of the one above):
+    # headers:
+    #   signoz-ingestion-key: ${env:SIGNOZ_INGESTION_KEY}
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/signoz, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/signoz, debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/signoz, debug]

@@ -1,0 +1,39 @@
+{
+  "name": "otel-browser-poc",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "backend": "node -r ./backend/tracing.cjs backend/server.cjs"
+  },
+  "devDependencies": {
+    "vite": "^8.3.5"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/api-logs": "0.219.0",
+    "@opentelemetry/context-zone": "2.12.0",
+    "@opentelemetry/exporter-logs-otlp-http": "0.219.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "0.219.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.219.0",
+    "@opentelemetry/instrumentation": "0.219.0",
+    "@opentelemetry/instrumentation-document-load": "0.64.0",
+    "@opentelemetry/instrumentation-fetch": "0.219.0",
+    "@opentelemetry/instrumentation-http": "0.219.0",
+    "@opentelemetry/instrumentation-user-interaction": "0.63.0",
+    "@opentelemetry/instrumentation-xml-http-request": "0.219.0",
+    "@opentelemetry/resources": "2.12.0",
+    "@opentelemetry/sdk-logs": "0.219.0",
+    "@opentelemetry/sdk-metrics": "2.12.0",
+    "@opentelemetry/sdk-node": "0.219.0",
+    "@opentelemetry/sdk-trace-base": "2.12.0",
+    "@opentelemetry/sdk-trace-web": "2.12.0",
+    "@opentelemetry/semantic-conventions": "1.43.0",
+    "web-vitals": "6.2.3"
+  },
+  "overrides": {
+    "@opentelemetry/propagator-jaeger": "2.12.0"
+  }
+}

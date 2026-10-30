@@ -1,0 +1,1079 @@
+{
+  "uid": "otel-browser-signoz",
+  "title": "OpenTelemetry: browser overview (SigNoz)",
+  "tags": [
+    "opentelemetry",
+    "browser",
+    "signoz"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "10s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "description": "Grafana on top of SigNoz: reads SigNoz's ClickHouse store directly (traces, logs, metrics).",
+  "templating": {
+    "list": [
+      {
+        "name": "ds",
+        "label": "SigNoz source",
+        "type": "datasource",
+        "query": "grafana-clickhouse-datasource",
+        "current": {
+          "text": "SigNoz (ClickHouse)",
+          "value": "signoz-clickhouse"
+        }
+      },
+      {
+        "name": "service",
+        "label": "Service",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "${ds}"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "query": {
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "refId": "svc",
+          "rawSql": "SELECT DISTINCT resources_string['service.name'] FROM signoz_traces.distributed_signoz_index_v3 WHERE timestamp > now() - INTERVAL 1 DAY AND ts_bucket_start >= toUInt64(toUnixTimestamp(now())) - 90000"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Traffic and latency (fetch / XHR spans, exact percentiles)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "HTTP requests",
+      "description": "",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds}"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT count() AS requests FROM signoz_traces.distributed_signoz_index_v3 WHERE $__timeFilter(timestamp) AND ts_bucket_start >= toUInt64(toUnixTimestamp($__fromTime)) - 1800 AND resources_string['service.name'] IN ($service) AND kind = 3 AND (http_method != '' OR startsWith(name, 'HTTP '))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "HTTP error rate",
+      "description": "5xx responses and failed calls",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds}"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT 100 * countIf(has_error OR toUInt16OrZero(response_status_code) >= 500) / count() AS error_rate FROM signoz_traces.distributed_signoz_index_v3 WHERE $__timeFilter(timestamp) AND ts_bucket_start >= toUInt64(toUnixTimestamp($__fromTime)) - 1800 AND resources_string['service.name'] IN ($service) AND kind = 3 AND (http_method != '' OR startsWith(name, 'HTTP '))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Unhandled errors",
+      "description": "",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds}"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT count() AS errors FROM signoz_traces.distributed_signoz_index_v3 WHERE $__timeFilter(timestamp) AND ts_bucket_start >= toUInt64(toUnixTimestamp($__fromTime)) - 1800 AND resources_string['service.name'] IN ($service) AND name IN ('browser.error', 'browser.unhandledrejection')"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Sessions",
+      "description": "Distinct browser sessions that sent spans",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds}"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT uniqExact(attributes_string['session.id']) AS sessions FROM signoz_traces.distributed_signoz_index_v3 WHERE $__timeFilter(timestamp) AND ts_bucket_start >= toUInt64(toUnixTimestamp($__fromTime)) - 1800 AND resources_string['service.name'] IN ($service)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Request rate by status",
+      "description": "",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds}"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT $__timeInterval(timestamp) AS time, if(response_status_code = '', 'failed', response_status_code) AS status, count() / $__interval_s AS rps FROM signoz_traces.distributed_signoz_index_v3 WHERE $__timeFilter(timestamp) AND ts_bucket_start >= toUInt64(toUnixTimestamp($__fromTime)) - 1800 AND resources_string['service.name'] IN ($service) AND kind = 3 AND (http_method != '' OR startsWith(name, 'HTTP ')) GROUP BY time, status ORDER BY time"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Latency p50 / p95 / p99",
+      "description": "",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds}"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT $__timeInterval(timestamp) AS time, quantile(0.5)(duration_nano) / 1e6 AS p50, quantile(0.95)(duration_nano) / 1e6 AS p95, quantile(0.99)(duration_nano) / 1e6 AS p99 FROM signoz_traces.distributed_signoz_index_v3 WHERE $__timeFilter(timestamp) AND ts_bucket_start >= toUInt64(toUnixTimestamp($__fromTime)) - 1800 AND resources_string['service.name'] IN ($service) AND kind = 3 AND (http_method != '' OR startsWith(name, 'HTTP ')) GROUP BY time ORDER BY time"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "p95 latency by server",
+      "description": "",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds}"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT $__timeInterval(timestamp) AS time, coalesce(nullIf(attributes_string['http.host'], ''), nullIf(attributes_string['server.address'], ''), nullIf(extract(attributes_string['http.url'], '^[a-zA-Z]+://([^/?#]+)'), ''), 'unknown') AS server, quantile(0.95)(duration_nano) / 1e6 AS p95 FROM signoz_traces.distributed_signoz_index_v3 WHERE $__timeFilter(timestamp) AND ts_bucket_start >= toUInt64(toUnixTimestamp($__fromTime)) - 1800 AND resources_string['service.name'] IN ($service) AND kind = 3 AND (http_method != '' OR startsWith(name, 'HTTP ')) GROUP BY time, server ORDER BY time"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Slowest requests",
+      "description": "Click a trace ID to open it in SigNoz",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds}"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT timestamp, trace_id, name, coalesce(nullIf(attributes_string['http.host'], ''), nullIf(attributes_string['server.address'], ''), nullIf(extract(attributes_string['http.url'], '^[a-zA-Z]+://([^/?#]+)'), ''), 'unknown') AS server, response_status_code AS status, duration_nano / 1e6 AS duration_ms FROM signoz_traces.distributed_signoz_index_v3 WHERE $__timeFilter(timestamp) AND ts_bucket_start >= toUInt64(toUnixTimestamp($__fromTime)) - 1800 AND resources_string['service.name'] IN ($service) AND kind = 3 AND (http_method != '' OR startsWith(name, 'HTTP ')) ORDER BY duration_nano DESC LIMIT 20"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trace_id"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open in SigNoz",
+                    "url": "http://localhost:8090/trace/${__value.raw}",
+                    "targetBlank": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "duration_ms"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Web vitals (75th percentile of the real values reported by each page view)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "LCP p75",
+      "description": "Good up to 2500, poor above 4000",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds}"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT quantile(0.75)(attributes_number['web_vital.value']) AS p75 FROM signoz_traces.distributed_signoz_index_v3 WHERE $__timeFilter(timestamp) AND ts_bucket_start >= toUInt64(toUnixTimestamp($__fromTime)) - 1800 AND resources_string['service.name'] IN ($service) AND name = 'web-vital.LCP'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2500
+              },
+              {
+                "color": "red",
+                "value": 4000
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "INP p75",
+      "description": "Good up to 200, poor above 500",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 5,
+        "y": 21,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds}"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT quantile(0.75)(attributes_number['web_vital.value']) AS p75 FROM signoz_traces.distributed_signoz_index_v3 WHERE $__timeFilter(timestamp) AND ts_bucket_start >= toUInt64(toUnixTimestamp($__fromTime)) - 1800 AND resources_string['service.name'] IN ($service) AND name = 'web-vital.INP'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 200
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "FCP p75",
+      "description": "Good up to 1800, poor above 3000",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 21,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds}"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT quantile(0.75)(attributes_number['web_vital.value']) AS p75 FROM signoz_traces.distributed_signoz_index_v3 WHERE $__timeFilter(timestamp) AND ts_bucket_start >= toUInt64(toUnixTimestamp($__fromTime)) - 1800 AND resources_string['service.name'] IN ($service) AND name = 'web-vital.FCP'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1800
+              },
+              {
+                "color": "red",
+                "value": 3000
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "TTFB p75",
+      "description": "Good up to 800, poor above 1800",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 15,
+        "y": 21,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds}"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT quantile(0.75)(attributes_number['web_vital.value']) AS p75 FROM signoz_traces.distributed_signoz_index_v3 WHERE $__timeFilter(timestamp) AND ts_bucket_start >= toUInt64(toUnixTimestamp($__fromTime)) - 1800 AND resources_string['service.name'] IN ($service) AND name = 'web-vital.TTFB'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 800
+              },
+              {
+                "color": "red",
+                "value": 1800
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "CLS p75",
+      "description": "Good up to 0.1, poor above 0.25",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 21,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds}"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT quantile(0.75)(attributes_number['web_vital.value']) AS p75 FROM signoz_traces.distributed_signoz_index_v3 WHERE $__timeFilter(timestamp) AND ts_bucket_start >= toUInt64(toUnixTimestamp($__fromTime)) - 1800 AND resources_string['service.name'] IN ($service) AND name = 'web-vital.CLS'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.1
+              },
+              {
+                "color": "red",
+                "value": 0.25
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 16,
+      "type": "row",
+      "title": "Errors and product events",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Unhandled errors by kind",
+      "description": "",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds}"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT $__timeInterval(timestamp) AS time, name AS kind, count() AS errors FROM signoz_traces.distributed_signoz_index_v3 WHERE $__timeFilter(timestamp) AND ts_bucket_start >= toUInt64(toUnixTimestamp($__fromTime)) - 1800 AND resources_string['service.name'] IN ($service) AND name IN ('browser.error', 'browser.unhandledrejection') GROUP BY time, kind ORDER BY time"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 18,
+      "type": "table",
+      "title": "Clicks by button (total so far)",
+      "description": "From the app.ui.clicks metric. Cumulative since the page sessions started, not limited to the time range",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 26,
+        "w": 6,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds}"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT JSONExtractString(l.labels, 'button') AS button, sum(s.total) AS total FROM (SELECT fingerprint, max(value) AS total FROM signoz_metrics.distributed_samples_v4 WHERE metric_name = 'app.ui.clicks' AND unix_milli <= toUnixTimestamp($__toTime) * 1000 GROUP BY fingerprint) AS s INNER JOIN (SELECT fingerprint, any(labels) AS labels FROM signoz_metrics.distributed_time_series_v4 WHERE metric_name = 'app.ui.clicks' GROUP BY fingerprint) AS l ON s.fingerprint = l.fingerprint GROUP BY button ORDER BY total DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 19,
+      "type": "table",
+      "title": "Orders by tier (total so far)",
+      "description": "From the app.orders.completed metric (cumulative)",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 26,
+        "w": 6,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds}"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT JSONExtractString(l.labels, 'tier') AS tier, sum(s.total) AS total FROM (SELECT fingerprint, max(value) AS total FROM signoz_metrics.distributed_samples_v4 WHERE metric_name = 'app.orders.completed' AND unix_milli <= toUnixTimestamp($__toTime) * 1000 GROUP BY fingerprint) AS s INNER JOIN (SELECT fingerprint, any(labels) AS labels FROM signoz_metrics.distributed_time_series_v4 WHERE metric_name = 'app.orders.completed' GROUP BY fingerprint) AS l ON s.fingerprint = l.fingerprint GROUP BY tier ORDER BY total DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "Logs",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Log volume by severity",
+      "description": "",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds}"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT toStartOfInterval(fromUnixTimestamp64Nano(toInt64(timestamp)), INTERVAL $__interval_s second) AS time, severity_text AS level, count() AS records FROM signoz_logs.distributed_logs_v2 WHERE timestamp >= toUnixTimestamp64Nano(toDateTime64($__fromTime, 9)) AND timestamp <= toUnixTimestamp64Nano(toDateTime64($__toTime, 9)) AND ts_bucket_start >= toUInt64(toUnixTimestamp($__fromTime)) - 1800 AND resources_string['service.name'] IN ($service) GROUP BY time, level ORDER BY time"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 22,
+      "type": "logs",
+      "title": "Warnings and errors",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds}"
+          },
+          "editorType": "sql",
+          "format": 2,
+          "queryType": "logs",
+          "rawSql": "SELECT fromUnixTimestamp64Nano(toInt64(l.timestamp)) AS timestamp, l.body AS body, l.severity_text AS level, l.trace_id AS trace_id FROM signoz_logs.distributed_logs_v2 AS l WHERE l.timestamp >= toUnixTimestamp64Nano(toDateTime64($__fromTime, 9)) AND l.timestamp <= toUnixTimestamp64Nano(toDateTime64($__toTime, 9)) AND l.ts_bucket_start >= toUInt64(toUnixTimestamp($__fromTime)) - 1800 AND l.resources_string['service.name'] IN ($service) AND l.severity_text IN ('WARN', 'ERROR') ORDER BY l.timestamp DESC LIMIT 200"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      }
+    }
+  ]
+}

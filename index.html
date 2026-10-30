@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenTelemetry Browser POC</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; }
+      button { margin: 4px 8px 4px 0; padding: 8px 14px; cursor: pointer; }
+      pre { background: #f4f4f4; padding: 12px; border-radius: 6px; min-height: 80px; white-space: pre-wrap; }
+      @media (prefers-color-scheme: dark) {
+        body { background: #1b1b1b; color: #eee; }
+        pre { background: #2a2a2a; }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>OpenTelemetry Browser POC</h1>
+    <p>Click the buttons, then open SigNoz at <a href="http://localhost:8090" target="_blank">localhost:8090</a>
+       and pick service <code>browser-poc</code> (traces). Logs and metrics: Grafana at
+       <a href="http://localhost:3001" target="_blank">localhost:3001</a>.</p>
+    <fieldset>
+      <legend>Telemetry (opt-in)</legend>
+      <span id="tel-status">Telemetry: OFF</span>
+      <button id="btn-consent-yes" hidden>Allow telemetry</button>
+      <button id="btn-consent-no" hidden>Withdraw consent</button>
+    </fieldset>
+    <div>
+      <button id="btn-public">1. Fetch public API</button>
+      <button id="btn-backend">2. Fetch own backend (trace propagation)</button>
+      <button id="btn-xhr">3. XHR request</button>
+      <button id="btn-custom">4. Custom span</button>
+      <button id="btn-error">5. Error span</button>
+      <button id="btn-unhandled">6. Unhandled error</button>
+      <button id="btn-logs">7. Send logs</button>
+      <button id="btn-metrics">8. Record metric</button>
+    </div>
+    <h3>Output</h3>
+    <pre id="out">Ready.</pre>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

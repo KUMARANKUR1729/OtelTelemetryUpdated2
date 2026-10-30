@@ -1,0 +1,15 @@
+apiVersion: 1
+datasources:
+  - name: SigNoz (ClickHouse)
+    uid: signoz-clickhouse
+    type: grafana-clickhouse-datasource
+    access: proxy
+    jsonData:
+      host: signoz-telemetrystore-clickhouse-0-0   # container name on signoz-network
+      port: 9000                                    # native protocol
+      protocol: native
+      secure: false
+      username: default
+      defaultDatabase: signoz_traces
+    secureJsonData:
+      password: ""                                  # SigNoz's ClickHouse default user has no password (dev setup)
